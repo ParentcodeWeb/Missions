@@ -16,7 +16,36 @@
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .win-overlay { background: radial-gradient(circle, #1E293B 0%, #0F172A 100%); animation: fadeIn 0.5s both; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes starFly {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--x), var(--y)) scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes coinPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+.flying-star {
+  position: fixed;
+  font-size: 22px;
+  pointer-events: none;
+  animation: starFly 0.7s ease forwards;
+  z-index: 999;
+}
+
+.coin-pulse {
+  animation: coinPulse 0.4s ease;
+}
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body class="pb-32">
 
@@ -146,17 +175,28 @@
         };
 
         window.showRewardsUI = () => {
-            document.getElementById('chest-closed').classList.add('hidden');
-            const ui = document.getElementById('chest-ui'), instr = document.getElementById('chest-instr');
-            ui.classList.remove('hidden'); instr.classList.remove('hidden');
-            instr.innerText = cur.chest.mode === 'all' ? "Toutes les récompenses sont à toi !" : "Choisis ton cadeau porte-bonheur !";
+    document.getElementById('chest-closed').classList.add('hidden');
+    const ui = document.getElementById('chest-ui');
+    const instr = document.getElementById('chest-instr');
+    ui.classList.remove('hidden');
+    instr.classList.remove('hidden');
+    instr.innerText = cur.chest.mode === 'all' ? 
+        "Toutes les récompenses sont à toi !" : 
+        "Choisis ton cadeau porte-bonheur !";
 
-            ui.innerHTML = cur.chest.rewards.map((r, i) => {
-                if(r.type === 'empty') return '';
-                const icon = r.type === 'money' ? '💰' : (r.type === 'boost' ? '⚡' : '🔑');
-                return `<button onclick="claim(${i})" class="aspect-square bg-slate-800 rounded-[2rem] flex flex-col items-center justify-center border border-white/5 active:scale-95 transition-all text-3xl shadow-xl shadow-black/40">${icon}</button>`;
-            }).join('');
-        };
+    // 🔥 Filtrer les rewards non vides
+    const rewardsToShow = cur.chest.rewards.filter(r => r.type !== 'empty');
+
+    // Ajuster le nombre de colonnes selon le nombre de récompenses (max 3)
+    const cols = Math.min(rewardsToShow.length, 3);
+    ui.className = `grid grid-cols-${cols} gap-3`;
+
+    // Génération des boutons
+    ui.innerHTML = rewardsToShow.map((r, i) => {
+        const icon = r.type === 'money' ? '💰' : (r.type === 'boost' ? '⚡' : '🔑');
+        return `<button onclick="claim(${i})" class="aspect-square bg-slate-800 rounded-[2rem] flex flex-col items-center justify-center border border-white/5 active:scale-95 transition-all text-3xl shadow-xl shadow-black/40">${icon}</button>`;
+    }).join('');
+};
 
         window.claim = async (index) => {
             let finalCoins = cur.coins || 0;
@@ -195,19 +235,40 @@
         };
 
         window.doM = async (i) => {
-            const m = [...cur.missions], t = m.splice(i,1)[0], p = cur.pending || []; p.push(t);
-            await updateDoc(docRef, { missions: m, pending: p });
-        };
+    launchConfetti(); // 🎉 effet immédiat
 
+    const m = [...cur.missions];
+    const t = m.splice(i,1)[0];
+    const p = cur.pending || [];
+    p.push(t);
+
+    await updateDoc(docRef, { missions: m, pending: p });
+};
         window.redeem = async () => {
-            const v = document.getElementById('ci').value.toUpperCase().trim(), codes = [...(cur.codes || [])], idx = codes.findIndex(x => x.key === v);
-            if(idx > -1) {
-                const gain = codes[idx].val; codes.splice(idx, 1);
-                await updateDoc(docRef, { coins: (cur.coins || 0) + gain, codes: codes });
-                alert("CODE OK !"); document.getElementById('ci').value = "";
-            } else { alert("Code inconnu"); }
-        };
+    const v = document.getElementById('ci').value.toUpperCase().trim();
+    const codes = [...(cur.codes || [])];
+    const idx = codes.findIndex(x => x.key === v);
 
+    if(idx > -1) {
+        const gain = codes[idx].val;
+        codes.splice(idx, 1);
+
+        // animation visuelle
+        animateStarsToWallet(gain);
+
+        // attendre fin animation avant ajout
+        setTimeout(async () => {
+            await updateDoc(docRef, {
+                coins: (cur.coins || 0) + gain,
+                codes: codes
+            });
+        }, 750);
+
+        document.getElementById('ci').value = "";
+    } else {
+        alert("Code inconnu");
+    }
+};
         function tick() {
             const n = Date.now(), x = cur.chest?.next || 0, b = document.getElementById('chest-btn'), t = document.getElementById('chest-timer');
             if(n >= x) { b.classList.remove('hidden'); t.innerText = "PRÊT !"; } 
@@ -217,6 +278,58 @@
             }
         }
         init();
+        function launchConfetti() {
+    const duration = 1200;
+    const end = Date.now() + duration;
+
+    (function frame() {
+        confetti({
+            particleCount: 6,
+            angle: 60,
+            spread: 70,
+            origin: { x: 0 }
+        });
+        confetti({
+            particleCount: 6,
+            angle: 120,
+            spread: 70,
+            origin: { x: 1 }
+        });
+
+        if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+}
+function animateStarsToWallet(amount) {
+    const coinBox = document.getElementById("coins");
+    const rect = coinBox.getBoundingClientRect();
+
+    const starsCount = Math.min(10, Math.max(4, Math.floor(amount / 5)));
+
+    for (let i = 0; i < starsCount; i++) {
+        const star = document.createElement("div");
+        star.innerText = "⭐";
+        star.className = "flying-star";
+
+        // départ aléatoire au centre écran
+        star.style.left = window.innerWidth / 2 + (Math.random()*80 - 40) + "px";
+        star.style.top = window.innerHeight / 2 + (Math.random()*80 - 40) + "px";
+
+        const dx = rect.left - window.innerWidth / 2;
+        const dy = rect.top - window.innerHeight / 2;
+
+        star.style.setProperty("--x", dx + "px");
+        star.style.setProperty("--y", dy + "px");
+
+        document.body.appendChild(star);
+
+        setTimeout(() => star.remove(), 700);
+    }
+
+    setTimeout(() => {
+        coinBox.classList.add("coin-pulse");
+        setTimeout(() => coinBox.classList.remove("coin-pulse"), 400);
+    }, 650);
+}
     </script>
 </body>
 </html>
