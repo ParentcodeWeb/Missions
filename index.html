@@ -27,7 +27,6 @@
         }
         .flying-star { position: fixed; font-size: 22px; pointer-events: none; animation: starFly 0.7s ease forwards; z-index: 999; }
         .coin-pulse { animation: coinPulse 0.4s ease; }
-        /* Style spécifique Slot */
         .reel-container { height: 80px; overflow: hidden; position: relative; background: white; border-radius: 12px; }
         .reel-strip { position: absolute; width: 100%; transition: transform 2s cubic-bezier(0.15, 1, 0.3, 1); }
         .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #000; }
@@ -52,11 +51,7 @@
 
     <main class="max-w-xl mx-auto px-6 mt-6 space-y-6">
         <div id="tab-missions" class="tab-content active space-y-3"></div>
-        
-        <div id="tab-rewards" class="tab-content">
-            <div id="rewards-grid" class="grid grid-cols-2 gap-4"></div>
-        </div>
-
+        <div id="tab-rewards" class="tab-content"><div id="rewards-grid" class="grid grid-cols-2 gap-4"></div></div>
         <div id="tab-codes" class="tab-content">
             <div class="section-card text-center py-10">
                 <i data-lucide="key" class="mx-auto mb-6 text-emerald-400 opacity-30" size="48"></i>
@@ -64,7 +59,6 @@
                 <button onclick="redeem()" class="w-full bg-emerald-600 py-5 rounded-3xl font-black uppercase">Valider</button>
             </div>
         </div>
-
         <div id="tab-chest" class="tab-content">
             <div class="section-card text-center">
                 <div id="chest-closed">
@@ -76,7 +70,6 @@
                 <p id="chest-instr" class="hidden text-[10px] font-black uppercase text-yellow-500 mt-6 italic"></p>
             </div>
         </div>
-
         <div id="tab-casino" class="tab-content">
             <div class="section-card text-center bg-slate-900/60 border-amber-500/20">
                 <h2 class="text-amber-500 font-black italic tracking-tighter mb-6 uppercase">🎰 Roue du Casino 🎰</h2>
@@ -125,28 +118,16 @@
         function render() {
             const userCoins = cur.coins || 0;
             document.getElementById('coins').innerText = userCoins;
-            
             document.getElementById('tab-missions').innerHTML = (cur.missions || []).map((m, i) => `
                 <div class="section-card flex justify-between items-center mb-3">
                     <div><p class="text-[10px] text-indigo-400 font-black uppercase">${m.name}</p><p class="text-xl font-black">${m.value} ⭐</p></div>
                     <button onclick="doM(${i})" class="bg-indigo-600 p-4 rounded-2xl active:scale-90 transition-transform"><i data-lucide="rocket"></i></button>
                 </div>
             `).join('');
-
             document.getElementById('rewards-grid').innerHTML = (cur.rewards || []).map((r, i) => {
-                const isTooExpensive = userCoins < r.price;
-                const isOutOfStock = r.stock <= 0;
-                const isDisabled = isTooExpensive || isOutOfStock;
-                return `
-                <div class="section-card text-center ${isDisabled ? 'locked' : ''}">
-                    <img src="${r.img}" class="w-full aspect-square object-cover rounded-2xl mb-3 shadow-lg">
-                    <p class="text-[10px] font-black uppercase mb-1 truncate">${r.name}</p>
-                    <button onclick="buyR(${i})" ${isDisabled ? 'disabled' : ''} class="w-full ${isTooExpensive ? 'bg-slate-700' : 'bg-rose-600'} py-3 rounded-xl font-black text-xs transition-colors">
-                        ${isOutOfStock ? 'ÉPUISÉ' : r.price + ' ⭐'}
-                    </button>
-                </div>`;
+                const isDisabled = userCoins < r.price || r.stock <= 0;
+                return `<div class="section-card text-center ${isDisabled ? 'locked' : ''}"><img src="${r.img}" class="w-full aspect-square object-cover rounded-2xl mb-3 shadow-lg"><p class="text-[10px] font-black uppercase mb-1 truncate">${r.name}</p><button onclick="buyR(${i})" ${isDisabled ? 'disabled' : ''} class="w-full ${userCoins < r.price ? 'bg-slate-700' : 'bg-rose-600'} py-3 rounded-xl font-black text-xs">${r.stock <= 0 ? 'ÉPUISÉ' : r.price + ' ⭐'}</button></div>`;
             }).join('');
-
             lucide.createIcons();
             tick();
         }
@@ -154,8 +135,7 @@
         window.buyR = async (i) => {
             const r = cur.rewards[i];
             if(cur.coins >= r.price && r.stock > 0) {
-                const nr = [...cur.rewards];
-                nr[i].stock -= 1;
+                const nr = [...cur.rewards]; nr[i].stock -= 1;
                 document.getElementById('win-emoji').innerText = "🛍️";
                 document.getElementById('win-title').innerText = "ACHAT RÉUSSI !";
                 document.getElementById('win-content').innerHTML = `<div class="bg-rose-400/10 p-4 rounded-2xl border border-rose-400/20"><p class="text-rose-400 font-black text-xl uppercase">${r.name}</p></div>`;
@@ -167,13 +147,12 @@
         window.showRewardsUI = () => {
             document.getElementById('chest-closed').classList.add('hidden');
             const ui = document.getElementById('chest-ui');
-            const instr = document.getElementById('chest-instr');
             ui.classList.remove('hidden');
-            instr.classList.remove('hidden');
-            const rewardsToShow = (cur.chest?.rewards || []).filter(r => r.type !== 'empty');
-            const cols = Math.min(rewardsToShow.length, 3);
-            ui.className = `grid grid-cols-${cols} gap-3`;
-            ui.innerHTML = rewardsToShow.map((r, i) => {
+            const rewards = cur.chest?.rewards || [];
+            const activeRewards = rewards.filter(r => r.type !== 'empty');
+            ui.className = `grid grid-cols-${Math.min(activeRewards.length, 3)} gap-3`;
+            ui.innerHTML = rewards.map((r, i) => {
+                if(r.type === 'empty') return '';
                 const icon = r.type === 'money' ? '💰' : (r.type === 'boost' ? '⚡' : '🔑');
                 return `<button onclick="claim(${i})" class="aspect-square bg-slate-800 rounded-[2rem] flex flex-col items-center justify-center border border-white/5 active:scale-95 transition-all text-3xl shadow-xl shadow-black/40">${icon}</button>`;
             }).join('');
@@ -184,11 +163,21 @@
             let finalBoost = cur.boost || null;
             let displayHTML = "";
             const rewardsToApply = cur.chest.mode === 'all' ? cur.chest.rewards.filter(r => r.type !== 'empty') : [cur.chest.rewards[index]];
+            
             rewardsToApply.forEach(r => {
-                if(r.type === 'money') { finalCoins += parseInt(r.value); displayHTML += `<div class="bg-yellow-400/10 p-4 rounded-2xl border border-yellow-400/20"><p class="text-yellow-400 font-black text-2xl">+ ${r.value} ⭐</p></div>`; }
-                if(r.type === 'boost') { finalBoost = { multiplier: r.multiplier, expires: Date.now() + (r.duration * 60000) }; displayHTML += `<div class="bg-indigo-400/10 p-4 rounded-2xl border border-indigo-400/20"><p class="text-indigo-400 font-black text-xl">Booster x${r.multiplier}</p></div>`; }
+                if(r.type === 'money') { 
+                    const gain = parseInt(r.value) || 0;
+                    finalCoins += gain; 
+                    displayHTML += `<div class="bg-yellow-400/10 p-4 rounded-2xl border border-yellow-400/20"><p class="text-yellow-400 font-black text-2xl">+ ${gain} ⭐</p></div>`; 
+                }
+                if(r.type === 'boost') { 
+                    finalBoost = { multiplier: parseInt(r.multiplier), expires: Date.now() + (parseInt(r.duration) * 60000) }; 
+                    displayHTML += `<div class="bg-indigo-400/10 p-4 rounded-2xl border border-indigo-400/20"><p class="text-indigo-400 font-black text-xl">Booster x${r.multiplier}</p></div>`; 
+                }
                 if(r.type === 'code') { displayHTML += `<div class="bg-emerald-400/10 p-4 rounded-2xl border border-emerald-400/20"><p class="text-emerald-400 font-black text-lg uppercase">${r.value}</p></div>`; }
             });
+
+            document.getElementById('win-content').innerHTML = displayHTML;
             document.getElementById('win-emoji').innerText = "🎁";
             document.getElementById('win-screen').classList.remove('hidden');
             await updateDoc(docRef, { coins: finalCoins, boost: finalBoost, "chest.next": Date.now() + 86400000 });
@@ -208,8 +197,7 @@
             const codes = [...(cur.codes || [])];
             const idx = codes.findIndex(x => x.key === v);
             if(idx > -1) {
-                const gain = codes[idx].val;
-                codes.splice(idx, 1);
+                const gain = codes[idx].val; codes.splice(idx, 1);
                 animateStarsToWallet(gain);
                 setTimeout(async () => { await updateDoc(docRef, { coins: (cur.coins || 0) + gain, codes: codes }); }, 750);
                 document.getElementById('ci').value = "";
@@ -222,70 +210,46 @@
             else { const d = x - n, h = Math.floor(d/3600000), m = Math.floor((d%3600000)/60000), s = Math.floor((d%60000)/1000); if(t) t.innerText = `${h}:${m}:${s}`; b?.classList.add('hidden'); }
         }
 
-        // --- MODULE CASINO LOGIQUE ---
         const slotSyms = ['😎', '🔥', '💯', '💎', '7️⃣'];
         let slotPlaying = false;
-
         function initSlot() {
             [1, 2, 3].forEach(id => {
-                const el = document.getElementById('v' + id);
-                if(!el) return;
-                let h = '';
-                for(let i=0; i<30; i++) h += `<div class="symbol">${slotSyms[Math.floor(Math.random()*slotSyms.length)]}</div>`;
-                el.innerHTML = h;
-                el.style.transform = `translateY(-${Math.floor(Math.random()*20)*80}px)`;
+                const el = document.getElementById('v' + id); if(!el) return;
+                let h = ''; for(let i=0; i<30; i++) h += `<div class="symbol">${slotSyms[Math.floor(Math.random()*slotSyms.length)]}</div>`;
+                el.innerHTML = h; el.style.transform = `translateY(-${Math.floor(Math.random()*20)*80}px)`;
             });
         }
 
         window.spinSlot = async () => {
-            if (slotPlaying || cur.coins < 10) {
-                if(cur.coins < 10) alert("Il te faut 10 ⭐ !");
-                return;
-            }
+            if (slotPlaying || cur.coins < 10) return;
             slotPlaying = true;
             const cfg = cur.casino || { winRate: 30, jackpot: 500, small: 50, forceNext: null };
             document.getElementById('slot-msg').innerText = "Bonne chance...";
-            
             await updateDoc(docRef, { coins: cur.coins - 10 });
-
-            let res = [];
-            const r = Math.random() * 100;
+            let res = []; const r = Math.random() * 100;
             const isWin = cfg.forceNext === 'jackpot' || (cfg.forceNext !== 'lose' && r < cfg.winRate);
-
             if (isWin) {
                 const isBig = cfg.forceNext === 'jackpot' || Math.random() < 0.2;
                 const s = slotSyms[Math.floor(Math.random()*slotSyms.length)];
                 res = isBig ? [s, s, s] : [s, s, slotSyms.find(x => x !== s)].sort(() => Math.random() - 0.5);
-            } else {
-                res = [...slotSyms].sort(() => Math.random() - 0.5).slice(0, 3);
-            }
-
+            } else { res = [...slotSyms].sort(() => Math.random() - 0.5).slice(0, 3); }
             if (cfg.forceNext) await updateDoc(docRef, { "casino.forceNext": null });
-
             [1, 2, 3].forEach((id, i) => {
-                const el = document.getElementById('v' + id);
-                const stopIdx = 18 + i;
+                const el = document.getElementById('v' + id); const stopIdx = 18 + i;
                 el.children[stopIdx].innerText = res[i];
                 el.style.transition = 'none'; el.style.transform = 'translateY(0)';
-                setTimeout(() => {
-                    el.style.transition = `transform ${2 + i*0.4}s cubic-bezier(0.15, 1, 0.3, 1)`;
-                    el.style.transform = `translateY(-${stopIdx * 80}px)`;
-                }, 50);
+                setTimeout(() => { el.style.transition = `transform ${2 + i*0.4}s cubic-bezier(0.15, 1, 0.3, 1)`; el.style.transform = `translateY(-${stopIdx * 80}px)`; }, 50);
             });
-
             setTimeout(async () => {
-                const winC = new Set(res).size;
-                let gain = 0;
-                if (winC === 1) { gain = parseInt(cfg.jackpot); launchConfetti(); document.getElementById('slot-msg').innerText = `Bravo 👏 +${gain} ⭐`; }
-                else if (winC === 2) { gain = parseInt(cfg.small); document.getElementById('slot-msg').innerText = `Bravo 👏 +${gain} ⭐`; }
-                else { document.getElementById('slot-msg').innerText = "perdu, désolé !"; }
-
+                const winC = new Set(res).size; let gain = 0;
+                if (winC === 1) { gain = parseInt(cfg.jackpot); launchConfetti(); }
+                else if (winC === 2) { gain = parseInt(cfg.small); }
+                document.getElementById('slot-msg').innerText = gain > 0 ? `Bravo 👏 +${gain} ⭐` : "perdu, désolé !";
                 if (gain > 0) { animateStarsToWallet(gain); await updateDoc(docRef, { coins: (cur.coins || 0) + gain }); }
                 slotPlaying = false;
             }, 3500);
         };
 
-        // --- EFFETS VISUELS ---
         function launchConfetti() {
             const end = Date.now() + 1200;
             (function frame() {
@@ -299,18 +263,14 @@
             const rect = document.getElementById("coins").getBoundingClientRect();
             const count = Math.min(8, Math.floor(amount/5) + 2);
             for (let i = 0; i < count; i++) {
-                const s = document.createElement("div");
-                s.innerText = "⭐"; s.className = "flying-star";
+                const s = document.createElement("div"); s.innerText = "⭐"; s.className = "flying-star";
                 s.style.left = window.innerWidth/2 + "px"; s.style.top = window.innerHeight/2 + "px";
                 s.style.setProperty("--x", (rect.left - window.innerWidth/2) + "px");
                 s.style.setProperty("--y", (rect.top - window.innerHeight/2) + "px");
-                document.body.appendChild(s);
-                setTimeout(() => s.remove(), 700);
+                document.body.appendChild(s); setTimeout(() => s.remove(), 700);
             }
-            setTimeout(() => { document.getElementById("coins").classList.add("coin-pulse"); setTimeout(() => document.getElementById("coins").classList.remove("coin-pulse"), 400); }, 650);
         }
-
         init();
     </script>
 </body>
-</html>
+    </html>
