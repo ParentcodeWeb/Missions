@@ -30,6 +30,49 @@
         .reel-container { height: 80px; overflow: hidden; position: relative; background: white; border-radius: 12px; }
         .reel-strip { position: absolute; width: 100%; transition: transform 2s cubic-bezier(0.15, 1, 0.3, 1); }
         .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #000; }
+        
+        /* Grille Morpion Dynamique et Responsive */
+        .morpion-grid { 
+            display: grid; 
+            gap: 6px; 
+            margin: 20px auto; 
+            width: 100%; 
+            max-width: 350px; 
+            aspect-ratio: 1 / 1;
+        }
+        .morpion-cell { 
+            aspect-ratio: 1 / 1; 
+            background: rgba(15, 23, 42, 0.6); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 0.75rem; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: var(--cell-font, 2rem); 
+            font-weight: 900; 
+            cursor: pointer; 
+            transition: all 0.2s;
+            line-height: 0;
+        }
+        .morpion-cell:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
+        .morpion-cell.x-mark { color: #818cf8; text-shadow: 0 0 15px rgba(129, 140, 248, 0.5); }
+        .morpion-cell.o-mark { color: #f43f5e; text-shadow: 0 0 15px rgba(244, 63, 94, 0.5); }
+
+        /* --- ROUE DE LA FORTUNE --- */
+        .wheel-wrapper { position: relative; width: 280px; height: 280px; margin: 20px auto; }
+        .wheel-pointer { 
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-top: 25px solid #ef4444; z-index: 50; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+        }
+        #wheel-svg { width: 100%; height: 100%; transition: transform 5s cubic-bezier(0.15, 1, 0.3, 1); }
+        .wheel-label { font-weight: 900; fill: white; text-anchor: middle; dominant-baseline: middle; }
+
+        /* --- NOUVEAUX STYLES JEUX DUEL --- */
+        .shake { animation: shake 0.5s; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+        .win-bounce { animation: bounce 0.5s; }
+        @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
@@ -52,6 +95,43 @@
     <main class="max-w-xl mx-auto px-6 mt-6 space-y-6">
         <div id="tab-missions" class="tab-content active space-y-3"></div>
         <div id="tab-rewards" class="tab-content"><div id="rewards-grid" class="grid grid-cols-2 gap-4"></div></div>
+        
+        <div id="tab-morpion" class="tab-content space-y-6">
+            <div class="section-card text-center">
+                <h2 class="text-indigo-400 font-black italic mb-2 uppercase tracking-tighter text-2xl">Duel Galactique</h2>
+                <div id="morpion-game">
+                    <div id="morpion-board" class="morpion-grid"></div>
+                    <p id="morpion-status" class="text-[10px] font-black uppercase text-indigo-400 animate-pulse mt-4 italic">Ton tour (X)</p>
+                    <p id="morpion-cost-info" class="text-[9px] mt-2 opacity-40 font-black uppercase tracking-widest"></p>
+                </div>
+            </div>
+
+            <div class="section-card text-center border-amber-500/20">
+                <div class="bg-amber-500/10 text-amber-500 px-4 py-2 rounded-2xl inline-block font-black text-sm mb-4">
+                    POTENTIEL : <span id="duel-pot">0</span> ⭐
+                </div>
+                <h2 class="text-amber-500 font-black italic tracking-tighter uppercase text-xl">À prendre ou à laisser</h2>
+                <div id="duel-chest-visual" class="text-7xl my-6 transition-all">📦</div>
+                <div id="duel-badge" class="hidden p-3 rounded-xl font-black text-[10px] uppercase mb-4"></div>
+                
+                <div id="duel-controls" class="flex gap-3">
+                    <button onclick="playDuelChest('prendre')" class="flex-1 bg-amber-500 text-slate-950 py-4 rounded-2xl font-black uppercase text-xs">Prendre</button>
+                    <button onclick="playDuelChest('refuser')" class="flex-1 bg-slate-800 text-white py-4 rounded-2xl font-black uppercase text-xs">Refuser</button>
+                </div>
+                <p id="chest-cost-display" class="text-[9px] mt-4 opacity-40 font-black uppercase tracking-widest">Prix : -- ⭐</p>
+                <button id="duel-cashout" onclick="cashOutDuel()" class="hidden w-full mt-4 bg-emerald-500 text-white py-4 rounded-2xl font-black uppercase text-xs">🛑 Encaisser les gains</button>
+            </div>
+
+            <div class="section-card text-center border-indigo-500/20">
+                <h2 class="text-indigo-400 font-black italic tracking-tighter uppercase text-xl">Maître du Temps</h2>
+                <p class="text-[10px] font-black uppercase opacity-50 mt-1">Cible : <span id="duel-target-ui">--</span>s</p>
+                <div id="duel-chrono-display" class="text-5xl font-black my-6 text-slate-200">0.00s</div>
+                <button id="duel-chrono-btn" onclick="handleDuelChrono()" class="w-full bg-indigo-600 py-5 rounded-3xl font-black uppercase shadow-lg shadow-indigo-500/20">Démarrer</button>
+                <p id="chrono-cost-display" class="text-[9px] mt-4 opacity-40 font-black uppercase tracking-widest">Prix : -- ⭐ / Gain : -- ⭐</p>
+                <div id="duel-chrono-msg" class="text-[10px] font-black uppercase mt-4 h-4"></div>
+            </div>
+        </div>
+
         <div id="tab-codes" class="tab-content">
             <div class="section-card text-center py-10">
                 <i data-lucide="key" class="mx-auto mb-6 text-emerald-400 opacity-30" size="48"></i>
@@ -71,7 +151,7 @@
             </div>
         </div>
         <div id="tab-casino" class="tab-content">
-            <div class="section-card text-center bg-slate-900/60 border-amber-500/20">
+            <div class="section-card text-center bg-slate-900/60 border-amber-500/20 mb-6">
                 <h2 class="text-amber-500 font-black italic tracking-tighter mb-6 uppercase">🎰 Roue du Casino 🎰</h2>
                 <div class="relative w-full max-w-[300px] mx-auto bg-black p-5 rounded-[2.5rem] border-4 border-amber-500 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
                     <div id="slot-msg" class="text-[10px] font-black uppercase text-amber-500 mb-4 h-4 italic">Tente ta chance !</div>
@@ -84,19 +164,29 @@
                         <i data-lucide="play" class="fill-black text-black ml-1"></i>
                     </button>
                 </div>
-                <p class="text-[10px] font-black text-slate-500 mt-6 uppercase tracking-[0.2em]">Mise : 10 ⭐</p>
+                <p class="text-[10px] font-black text-slate-500 mt-4 uppercase tracking-[0.2em]">Mise Slot : 10 ⭐</p>
+            </div>
+
+            <div class="section-card text-center bg-slate-900/60 border-indigo-500/20">
+                <h2 class="text-indigo-400 font-black italic tracking-tighter mb-4 uppercase">🎡 Roue de la Chance</h2>
+                <div class="wheel-wrapper">
+                    <div class="wheel-pointer"></div>
+                    <svg id="wheel-svg" viewBox="0 0 100 100"></svg>
+                </div>
+                <p id="wheel-cost-info" class="text-[10px] font-black text-slate-500 mt-4 uppercase tracking-[0.2em]">Mise Roue : -- ⭐</p>
+                <button id="wheel-btn" onclick="spinWheel()" class="mt-4 w-full bg-indigo-600 py-4 rounded-3xl font-black uppercase shadow-lg shadow-indigo-500/20">Lancer la Roue</button>
             </div>
         </div>
-    </main>
+        </main>
 
     <nav class="fixed bottom-6 inset-x-6 bg-slate-900/90 backdrop-blur-2xl p-4 flex justify-around rounded-[2.5rem] border border-white/10 z-[100] shadow-2xl">
         <button onclick="switchTab('missions')" class="nav-btn text-indigo-500" data-tab="missions"><i data-lucide="list"></i></button>
         <button onclick="switchTab('rewards')" class="nav-btn text-slate-500" data-tab="rewards"><i data-lucide="shopping-bag"></i></button>
+        <button onclick="switchTab('morpion')" class="nav-btn text-slate-500" data-tab="morpion"><i data-lucide="swords"></i></button>
         <button onclick="switchTab('casino')" class="nav-btn text-slate-500" data-tab="casino"><i data-lucide="dices"></i></button>
         <button onclick="switchTab('codes')" class="nav-btn text-slate-500" data-tab="codes"><i data-lucide="key"></i></button>
         <button onclick="switchTab('chest')" class="nav-btn text-slate-500" data-tab="chest"><i data-lucide="package"></i></button>
     </nav>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getFirestore, doc, onSnapshot, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
@@ -108,6 +198,10 @@
         const docRef = doc(db, "global", "state");
         let cur = {};
 
+        let duelPot = 0;
+        let chronoRunning = false;
+        let chronoStart, chronoInt;
+
         async function init() {
             await signInAnonymously(getAuth(app));
             onSnapshot(docRef, (snap) => { if(snap.exists()){ cur=snap.data(); render(); } });
@@ -118,6 +212,16 @@
         function render() {
             const userCoins = cur.coins || 0;
             document.getElementById('coins').innerText = userCoins;
+            
+            if(cur.morpion) {
+                document.getElementById('morpion-cost-info').innerText = `PARTIE : ${cur.morpion.cost || 0} ⭐ (DÉDUIT AU PREMIER COUP)`;
+            }
+            if(cur.duel) {
+                document.getElementById('chest-cost-display').innerText = `Prix : ${cur.duel.chestCost || 0} ⭐`;
+                document.getElementById('chrono-cost-display').innerText = `Prix : ${cur.duel.chronoCost || 0} ⭐ / Gain : ${cur.duel.chronoGain || 0} ⭐`;
+                document.getElementById('duel-target-ui').innerText = cur.duel.target || 5;
+            }
+
             document.getElementById('tab-missions').innerHTML = (cur.missions || []).map((m, i) => `
                 <div class="section-card flex justify-between items-center mb-3">
                     <div><p class="text-[10px] text-indigo-400 font-black uppercase">${m.name}</p><p class="text-xl font-black">${m.value} ⭐</p></div>
@@ -128,9 +232,101 @@
                 const isDisabled = userCoins < r.price || r.stock <= 0;
                 return `<div class="section-card text-center ${isDisabled ? 'locked' : ''}"><img src="${r.img}" class="w-full aspect-square object-cover rounded-2xl mb-3 shadow-lg"><p class="text-[10px] font-black uppercase mb-1 truncate">${r.name}</p><button onclick="buyR(${i})" ${isDisabled ? 'disabled' : ''} class="w-full ${userCoins < r.price ? 'bg-slate-700' : 'bg-rose-600'} py-3 rounded-xl font-black text-xs">${r.stock <= 0 ? 'ÉPUISÉ' : r.price + ' ⭐'}</button></div>`;
             }).join('');
+            
+            if(!board.length) window.initBoard(cur.morpion?.size || 3);
+            
             lucide.createIcons();
             tick();
+            document.getElementById('wheel-cost-info').innerText = `Mise Roue : ${cur.wheel?.cost || 0} ⭐`;
+            window.createWheel();
         }
+
+        // --- LOGIQUE À PRENDRE OU À LAISSER ---
+        window.playDuelChest = async (choice) => {
+    const cfg = cur.duel || { chestCost: 10, chestWinRate: 50, chestMult: 1.5 };
+    
+    // On ne paie QUE si le pot actuel est à 0 (début d'une nouvelle série)
+    if (duelPot === 0) {
+        if (cur.coins < cfg.chestCost) return alert("Pas assez d'étoiles !");
+        await updateDoc(docRef, { coins: cur.coins - cfg.chestCost });
+    }
+
+    const isWin = (Math.random() * 100) < (cfg.chestWinRate || 50);
+    const success = (choice === 'prendre') ? isWin : !isWin;
+    
+    const visual = document.getElementById('duel-chest-visual');
+    const badge = document.getElementById('duel-badge');
+    badge.classList.remove('hidden', 'bg-emerald-500', 'bg-rose-500');
+
+    if(success) {
+        // Le gain est basé sur le prix initial ou le pot actuel multiplié
+        const baseGain = duelPot === 0 ? cfg.chestCost : duelPot;
+        duelPot = Math.floor(baseGain * (cfg.chestMult || 1.5));
+        
+        visual.innerText = "💰";
+        badge.innerText = "BIEN JOUÉ !";
+        badge.classList.add('bg-emerald-500');
+        document.getElementById('duel-cashout').classList.remove('hidden');
+    } else {
+        duelPot = 0;
+        visual.innerText = "❌";
+        badge.innerText = "PERDU !";
+        badge.classList.add('bg-rose-500');
+        document.getElementById('duel-cashout').classList.add('hidden');
+    }
+    document.getElementById('duel-pot').innerText = duelPot;
+    setTimeout(() => { visual.innerText = "📦"; }, 1500);
+};
+
+
+        window.cashOutDuel = async () => {
+            if(duelPot <= 0) return;
+            animateStarsToWallet(duelPot);
+            const total = (cur.coins || 0) + duelPot;
+            duelPot = 0;
+            document.getElementById('duel-pot').innerText = "0";
+            document.getElementById('duel-cashout').classList.add('hidden');
+            document.getElementById('duel-badge').classList.add('hidden');
+            await updateDoc(docRef, { coins: total });
+        };
+
+        // --- LOGIQUE MAITRE DU TEMPS ---
+        window.handleDuelChrono = async () => {
+            const cfg = cur.duel || { chronoCost: 10, chronoGain: 20, target: 5, ai: 0.5 };
+            const disp = document.getElementById('duel-chrono-display');
+            const btn = document.getElementById('duel-chrono-btn');
+            const msg = document.getElementById('duel-chrono-msg');
+
+            if(!chronoRunning) {
+                if (cur.coins < cfg.chronoCost) return alert("Pas assez d'étoiles !");
+                await updateDoc(docRef, { coins: cur.coins - cfg.chronoCost });
+                
+                chronoRunning = true; chronoStart = Date.now();
+                btn.innerText = "STOP !"; msg.innerText = "";
+                chronoInt = setInterval(() => {
+                    let diff = (Date.now() - chronoStart) / 1000;
+                    disp.innerText = diff <= 3 ? diff.toFixed(2) + "s" : "???";
+                }, 50);
+            } else {
+                chronoRunning = false; clearInterval(chronoInt);
+                let final = (Date.now() - chronoStart) / 1000;
+                disp.innerText = final.toFixed(2) + "s";
+                btn.innerText = "DÉMARRER";
+                
+                let aiErr = (Math.random() * 2 - 1) * cfg.ai;
+                let aiFinal = parseFloat(cfg.target) + aiErr;
+                let win = Math.abs(final - cfg.target) < Math.abs(aiFinal - cfg.target);
+                
+                msg.innerText = win ? `🏆 +${cfg.chronoGain} ⭐ (IA: ${aiFinal.toFixed(2)}s)` : `🤖 IA PLUS PROCHE (${aiFinal.toFixed(2)}s)`;
+                msg.className = win ? "text-[10px] font-black uppercase mt-4 h-4 text-emerald-400" : "text-[10px] font-black uppercase mt-4 h-4 text-amber-500";
+                
+                if(win) { 
+                    launchConfetti(); 
+                    animateStarsToWallet(cfg.chronoGain); 
+                    await updateDoc(docRef, { coins: (cur.coins || 0) + cfg.chronoGain }); 
+                }
+            }
+        };
 
         window.buyR = async (i) => {
             const r = cur.rewards[i];
@@ -189,7 +385,6 @@
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.replace('text-indigo-500', 'text-slate-500'));
             document.querySelector(`[data-tab="${t}"]`).classList.replace('text-slate-500', 'text-indigo-500');
         };
-
         window.doM = async (i) => { launchConfetti(); const m = [...cur.missions]; const t = m.splice(i,1)[0]; const p = cur.pending || []; p.push(t); await updateDoc(docRef, { missions: m, pending: p }); };
         
         window.redeem = async () => {
@@ -203,13 +398,11 @@
                 document.getElementById('ci').value = "";
             }
         };
-
         function tick() {
             const n = Date.now(), x = cur.chest?.next || 0, b = document.getElementById('chest-btn'), t = document.getElementById('chest-timer');
             if(n >= x) { b?.classList.remove('hidden'); if(t) t.innerText = "PRÊT !"; } 
             else { const d = x - n, h = Math.floor(d/3600000), m = Math.floor((d%3600000)/60000), s = Math.floor((d%60000)/1000); if(t) t.innerText = `${h}:${m}:${s}`; b?.classList.add('hidden'); }
         }
-
         const slotSyms = ['😎', '🔥', '💯', '💎', '7️⃣'];
         let slotPlaying = false;
         function initSlot() {
@@ -270,7 +463,261 @@
                 document.body.appendChild(s); setTimeout(() => s.remove(), 700);
             }
         }
+        // --- LOGIQUE MORPION ---
+        let board = [];
+        let gameActive = false;
+
+        window.initBoard = (size) => {
+            board = Array(size * size).fill(null);
+            const grid = document.getElementById('morpion-board');
+            const fontSize = size === 3 ? "2rem" : (size === 5 ? "1.2rem" : "0.7rem");
+            grid.style.setProperty('--cell-font', fontSize);
+            grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            grid.innerHTML = '';
+            board.forEach((_, i) => {
+                const cell = document.createElement('div');
+                cell.className = 'morpion-cell';
+                cell.onclick = () => window.playerMove(i);
+                grid.appendChild(cell);
+            });
+            gameActive = true;
+            document.getElementById('morpion-status').innerText = "À toi ! (X)";
+        };
+
+        window.playerMove = async (i) => {
+            if (!gameActive || board[i]) return;
+
+            if (board.every(cell => cell === null)) {
+                const cost = cur.morpion?.cost || 10;
+                if (cur.coins < cost) return alert("Pas assez d'étoiles !");
+                await updateDoc(docRef, { coins: cur.coins - cost });
+            }
+
+            board[i] = 'X';
+            window.updateBoardUI();
+            if (window.checkWin('X')) return window.endGame('win');
+            if (board.every(c => c)) return window.endGame('draw');
+            gameActive = false;
+            document.getElementById('morpion-status').innerText = "L'IA réfléchit...";
+            setTimeout(window.aiMove, 600);
+        };
+        
+        window.aiMove = () => {
+            const config = cur.morpion || { size: 3 };
+            const diff = config.difficulty || 'easy';
+            let move;
+
+            const depthLimit = config.size === 3 ? 9 : (config.size === 5 ? 3 : 1);
+
+            if (diff === 'easy') {
+                move = window.getRandomMove();
+            } 
+            else if (diff === 'medium') {
+                move = Math.random() < 0.6 ? window.getBestMove(depthLimit) : window.getRandomMove();
+            } 
+            else {
+                move = window.getBestMove(depthLimit);
+            }
+
+            board[move] = 'O';
+            window.updateBoardUI();
+            
+            if (window.checkWin('O')) return window.endGame('lose');
+            if (board.every(c => c)) return window.endGame('draw');
+            
+            gameActive = true;
+            document.getElementById('morpion-status').innerText = "À toi ! (X)";
+        };
+        
+
+        window.getRandomMove = () => {
+            const avail = board.map((v, i) => v === null ? i : null).filter(v => v !== null);
+            return avail[Math.floor(Math.random() * avail.length)];
+        };
+
+        window.getBestMove = (limit) => {
+            let bestScore = -Infinity;
+            let move = 0;
+            for (let i = 0; i < board.length; i++) {
+                if (!board[i]) {
+                    board[i] = 'O';
+                    let score = window.minimax(board, 0, false, limit);
+                    board[i] = null;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        move = i;
+                    }
+                }
+            }
+            return move;
+        };
+
+        window.minimax = (b, depth, isMaximizing, limit) => {
+            if (window.checkWin('O')) return 10 - depth;
+            if (window.checkWin('X')) return depth - 10;
+            if (b.every(cell => cell !== null) || depth >= limit) return 0;
+
+            if (isMaximizing) {
+                let bestScore = -Infinity;
+                for (let i = 0; i < b.length; i++) {
+                    if (!b[i]) {
+                        b[i] = 'O';
+                        let score = window.minimax(b, depth + 1, false, limit);
+                        b[i] = null;
+                        bestScore = Math.max(score, bestScore);
+                    }
+                }
+                return bestScore;
+            } else {
+                let bestScore = Infinity;
+                for (let i = 0; i < b.length; i++) {
+                    if (!b[i]) {
+                        b[i] = 'X';
+                        let score = window.minimax(b, depth + 1, true, limit);
+                        b[i] = null;
+                        bestScore = Math.min(score, bestScore);
+                    }
+                }
+                return bestScore;
+            }
+        };
+
+        window.checkWin = (p) => {
+            const s = cur.morpion?.size || 3;
+            const target = cur.morpion?.winLength || 3;
+            const checkLine = (arr) => {
+                let count = 0;
+                for (let val of arr) {
+                    if (val === p) { count++; if (count >= target) return true; }
+                    else count = 0;
+                }
+                return false;
+            };
+            for (let r=0; r<s; r++) if (checkLine(board.slice(r*s, (r+1)*s))) return true;
+            for (let c=0; c<s; c++) { 
+                let col=[]; for(let r=0; r<s; r++) col.push(board[r*s+c]); 
+                if(checkLine(col)) return true; 
+            }
+            for (let i = 0; i <= board.length - 1; i++) {
+                if (board[i] === p) {
+                    if (checkDirection(i, 1, 1, p, target, s) || checkDirection(i, 1, -1, p, target, s)) return true;
+                }
+            }
+            return false;
+        };
+
+        function checkDirection(idx, rowDir, colDir, p, target, s) {
+            let count = 0;
+            let r = Math.floor(idx / s);
+            let c = idx % s;
+            for (let i = 0; i < target; i++) {
+                let nr = r + i * rowDir;
+                let nc = c + i * colDir;
+                if (nr >= 0 && nr < s && nc >= 0 && nc < s && board[nr * s + nc] === p) count++;
+                else break;
+            }
+            return count >= target;
+        }
+
+        window.updateBoardUI = () => {
+            const cells = document.querySelectorAll('.morpion-cell');
+            board.forEach((v, i) => { 
+                if (v) {
+                    cells[i].innerText = v; 
+                    cells[i].classList.add(v === 'X' ? 'x-mark' : 'o-mark');
+                }
+            });
+        };
+
+        window.endGame = async (res) => {
+            gameActive = false;
+            const config = cur.morpion || { difficulty: 'easy' };
+            const diff = config.difficulty || 'easy';
+            const rewards = config.rewards?.[diff] || { win: 10, draw: 2, lose: 0 };
+            const gain = rewards[res] || 0;
+            document.getElementById('win-title').innerText = res === 'win' ? "VICTOIRE !" : (res === 'draw' ? "ÉGALITÉ" : "DÉFAITE...");
+            document.getElementById('win-emoji').innerText = res === 'win' ? "🏆" : (res === 'draw' ? "🤝" : "💀");
+            document.getElementById('win-content').innerHTML = `<div class="bg-indigo-400/10 p-6 rounded-3xl border border-indigo-400/20"><p class="text-indigo-400 font-black text-3xl">+ ${gain} ⭐</p></div>`;
+            if (res === 'win') launchConfetti();
+            document.getElementById('win-screen').classList.remove('hidden');
+            await updateDoc(docRef, { coins: (cur.coins || 0) + gain });
+        };
+
+        // --- ROUE ---
+        let wheelSpinning = false;
+        window.createWheel = () => {
+            const svg = document.getElementById('wheel-svg');
+            if(!svg || !cur.wheel) return;
+            const options = cur.wheel.options || [];
+            const arc = 360 / options.length;
+            svg.innerHTML = '';
+            options.forEach((opt, i) => {
+                const start = i * arc; const end = (i + 1) * arc;
+                const x1 = 50 + 50 * Math.cos(Math.PI * (start - 90) / 180);
+                const y1 = 50 + 50 * Math.sin(Math.PI * (start - 90) / 180);
+                const x2 = 50 + 50 * Math.cos(Math.PI * (end - 90) / 180);
+                const y2 = 50 + 50 * Math.sin(Math.PI * (end - 90) / 180);
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", `M 50 50 L ${x1} ${y1} A 50 50 0 0 1 ${x2} ${y2} Z`);
+                path.setAttribute("fill", opt.color);
+                path.setAttribute("stroke", "rgba(255,255,255,0.05)");
+                const textAngle = start + (arc / 2);
+                const tx = 50 + 38 * Math.cos(Math.PI * (textAngle - 90) / 180);
+                const ty = 50 + 38 * Math.sin(Math.PI * (textAngle - 90) / 180);
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", tx); text.setAttribute("y", ty);
+                text.setAttribute("class", "wheel-label");
+                text.setAttribute("transform", `rotate(${textAngle}, ${tx}, ${ty})`);
+                const label = opt.label || "0";
+                text.setAttribute("font-size", label.length > 3 ? "3" : "4.5");
+                text.textContent = label;
+                svg.appendChild(path);
+                svg.appendChild(text);
+            });
+        };
+
+        window.spinWheel = async () => {
+            if (wheelSpinning || (cur.coins || 0) < (cur.wheel?.cost || 0)) return;
+            wheelSpinning = true;
+            await updateDoc(docRef, { coins: cur.coins - (cur.wheel.cost || 0) });
+            const opts = cur.wheel.options;
+            const rate = cur.wheel.winRate || 50; 
+            let pool = [];
+            opts.forEach((opt, idx) => {
+                let weight = 10;
+                const val = parseInt(opt.value) || 0;
+                if (val > 50 || opt.type === 'jackpot') weight = Math.floor(rate / 10);
+                if (val < 0) weight = Math.floor((100 - rate) / 10);
+                for(let i=0; i<weight+1; i++) pool.push(idx);
+            });
+            const winIdx = pool[Math.floor(Math.random() * pool.length)];
+            const arc = 360 / opts.length;
+            const stopDeg = (360 * 8) + (360 - (winIdx * arc)) - (arc / 2);
+            const svg = document.getElementById('wheel-svg');
+            svg.style.transition = 'transform 5s cubic-bezier(0.15, 1, 0.3, 1)';
+            svg.style.transform = `rotate(${stopDeg}deg)`;
+            setTimeout(async () => {
+                const res = opts[winIdx];
+                wheelSpinning = false;
+                svg.style.transition = 'none';
+                svg.style.transform = `rotate(${stopDeg % 360}deg)`;
+                if (res.type === 'respin') {
+                     document.getElementById('win-title').innerText = "RELANCE !";
+                     document.getElementById('win-content').innerHTML = "C'est gratuit, rejoue !";
+                     document.getElementById('win-screen').classList.remove('hidden');
+                     return;
+                }
+                let gain = parseInt(res.value) || 0;
+                let msg = res.type === 'code' ? `CODE : ${res.code}` : `GAIN : ${gain} ⭐`;
+                document.getElementById('win-title').innerText = gain >= 0 ? "BRAVO !" : "DOMMAGE...";
+                document.getElementById('win-emoji').innerText = gain > 100 ? "🔥" : "🎡";
+                document.getElementById('win-content').innerHTML = `<p class='text-2xl font-black text-indigo-400'>${msg}</p>`;
+                document.getElementById('win-screen').classList.remove('hidden');
+                if(gain !== 0) await updateDoc(docRef, { coins: (cur.coins || 0) + gain });
+            }, 5500);
+        };
+
         init();
     </script>
 </body>
-    </html>
+</html>
